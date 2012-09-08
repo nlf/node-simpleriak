@@ -31,9 +31,11 @@ reply is an object containing the following keys
 List buckets
 ------------
 
-    riak.getBuckets(function (err, reply) {
-        console.log(reply.data);
-    });
+```javascript
+riak.getBuckets(function (err, reply) {
+    console.log(reply.data);
+});
+```
 
 List keys
 ---------
