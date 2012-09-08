@@ -1,6 +1,3 @@
-simpleriak
-==========
-
 SimpleRiak is a very simple riak HTTP client. It wraps request and simplifies the calls made to riak as much as possible.
 
 Usage
