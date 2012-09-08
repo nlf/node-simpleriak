@@ -6,6 +6,13 @@ SimpleRiak is a very simple riak HTTP client. It wraps request and simplifies th
 Usage
 =====
 
+Installation
+------------
+
+```
+npm install simpleriak
+```
+
 Object creation
 ---------------
 
