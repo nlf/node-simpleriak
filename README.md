@@ -56,7 +56,7 @@ List keys (matching an index)
 -----------------------------
 
 ```javascript
-riak.getKeys({ index: 'count', start: 5, end: 10 }, function (err, reply) {
+riak.getKeys({ index: { count: { start: 5, end: 10 } } }, function (err, reply) {
     console.log(reply.data);
 });
 ```
@@ -97,7 +97,7 @@ Get data (by index)
 -------------------
 
 ```javascript
-riak.get({ index: 'creator', key: 'me' }, function (err, reply) {
+riak.get({ index: { creator: 'me' } }, function (err, reply) {
     console.log(reply.data); // returns ['i put this here']
 });
 ```
@@ -181,7 +181,7 @@ You may specify a bucket, a bucket and key, or a bucket and an index using an ex
 ```javascript
 riak.mapred({ bucket: 'test2', map: 'Riak.mapValuesJson' }, callback);
 riak.mapred({ key: 'test', map: 'Riak.mapValuesJson' }, callback); // default bucket is used
-riak.mapred({ index: 'creator', key: 'me', map: 'Riak.mapValuesJson' }, callback);
+riak.mapred({ index: { creator: 'me' }, map: 'Riak.mapValuesJson' }, callback);
 ```
 
 Ping

@@ -27,6 +27,92 @@ function toJSON(data) {
     }
 }
 
+function mapToMap(v, keyData, arg) {
+    var ret = [],
+        indexes = v.values[0].metadata.index,
+        match = true;
+
+    for (var i = 0; i < arg.length; i++) {
+        var ind = arg[i][0],
+            val = arg[i][1];
+        if (!indexes.hasOwnProperty(ind)) {
+            match = false;
+        } else {
+            if (typeof val === 'object') {
+                if (indexes[ind] < val.start || indexes[ind] > val.end) match = false;
+            } else {
+                if (indexes[ind] !== val) match = false;
+            }
+        }
+    }
+    if (match) ret.push([v.bucket, v.key]);
+    return ret;
+}
+
+function mapIndexes(v, keyData, arg) {
+    var ret = [],
+        indexes = v.values[0].metadata.index,
+        match = true;
+
+    for (var i = 0; i < arg.length; i++) {
+        var ind = arg[i][0],
+            val = arg[i][1];
+        if (!indexes.hasOwnProperty(ind)) {
+            match = false;
+        } else {
+            if (typeof val === 'object') {
+                if (indexes[ind] < val.start || indexes[ind] > val.end) match = false;
+            } else {
+                if (indexes[ind] !== val) match = false;
+            }
+        }
+    }
+    if (match) ret.push(v);
+    return ret;
+}
+
+SimpleRiak.prototype.buildIndexMap = function (bucket, index) {
+    var req = {};
+    if (!Array.isArray(index) || index.length === 1) {
+        if (Array.isArray(index)) index = index[0];
+        var ind = Object.keys(index)[0],
+            val = index[ind];
+        ind = buildIndex(ind, val);
+        if (typeof val === 'object') {
+            req.uri = this.buildURL('buckets', bucket, 'index', ind, val.start, val.end);
+        } else {
+            req.uri = this.buildURL('buckets', bucket, 'index', ind, val);
+        }
+    } else {
+        var first = index.shift();
+        req.bucket = bucket;
+        req.index = first;
+
+        index = index.map(function (index) {
+            var key = Object.keys(index)[0],
+                val = index[key],
+                temp;
+
+            key = buildIndex(key, val);
+            temp = [key, val];
+            return temp;
+        });
+
+        req.map = { source: mapIndexes, arg: index };
+    }
+    return req;
+};
+
+function buildIndex(index, value) {
+    var suffix;
+    if (typeof value === 'object') {
+        suffix = (typeof value.start === 'number' && typeof value.end === 'number') ? '_int' : '_bin';
+    } else {
+        suffix = typeof value === 'number' ? '_int' : '_bin';
+    }
+    return index + suffix;
+}
+
 SimpleRiak.prototype.buildURL = function () {
     return ([this.base_url].concat(Array.prototype.slice.call(arguments, 0))).join('/');
 };
@@ -59,27 +145,24 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
         callback = options;
         options = {};
     }
+
+    function reduce(v) {
+        v = v.map(function (item) {
+            return item.key;
+        });
+        return { keys: v };
+    }
+
     var bucket = options.bucket || this.bucket;
     if (!bucket) return callback(new Error('No bucket specified'));
     if (options.index) {
-        var index,
-            req = {};
-        if (options.key) {
-            if (typeof options.key === 'number') {
-                index = options.index + '_int';
-            } else {
-                index = options.index + '_bin';
-            }
-            req.uri = this.buildURL('buckets', bucket, 'index', index, options.key);
-        } else if (options.start && options.end) {
-            if (typeof options.start === 'number' && typeof options.end === 'number') {
-                index = options.index + '_int';
-            } else {
-                index = options.index + '_bin';
-            }
-            req.uri = this.buildURL('buckets', bucket, 'index', index, options.start, options.end);
+        var req = this.buildIndexMap(bucket, options.index);
+        if (!Array.isArray(options.index)) {
+            request.get(req, respond(callback));
+        } else {
+            req.reduce = { source: reduce };
+            this.mapred(req, callback);
         }
-        request.get(req, respond(callback));
     } else {
         request.get({ uri: this.buildURL('buckets', bucket, 'keys'), qs: { keys: true } }, respond(callback));
     }
@@ -106,17 +189,17 @@ SimpleRiak.prototype.setBucket = function (options, callback) {
 SimpleRiak.prototype.get = function (options, callback) {
     var bucket = options.bucket || this.bucket;
     if (!bucket) return callback(new Error('No bucket specified'));
+    function reduce(v) {
+        v = v.map(function (item) {
+            return JSON.parse(item.values[0].data);
+        });
+        return v;
+    }
     var req = {};
     if (options.index) {
-        var opts = {};
-        opts = { bucket: bucket, index: options.index, map: 'Riak.mapValuesJson' };
-        if (options.start && options.end) {
-            opts.start = options.start;
-            opts.end = options.end;
-        } else {
-            opts.key = options.key;
-        }
-        this.mapred(opts, callback);
+        req = this.buildIndexMap(bucket, options.index);
+        req.reduce = reduce;
+        this.mapred(req, callback);
     } else {
         req.uri = this.buildURL('buckets', bucket, 'keys', options.key);
         request.get(req, respond(callback));
@@ -146,12 +229,7 @@ SimpleRiak.prototype.put = function (options, callback) {
     }
     if (options.index) {
         Object.keys(options.index).forEach(function (ind) {
-            var index;
-            if (typeof ind === 'number') {
-                index = ind + '_int';
-            } else {
-                index = ind + '_bin';
-            }
+            var index = buildIndex(ind, options.index[ind]);
             req.headers['x-riak-index-' + index] = options.index[ind];
         });
     }
@@ -169,23 +247,19 @@ SimpleRiak.prototype.mapred = function (options, callback) {
     if (!bucket) return callback(new Error('No bucket specified'));
     var req = {};
     req.uri = this.buildURL('mapred');
-    req.json = { inputs: { bucket: bucket } };
+    req.json = { inputs: { bucket: bucket }, query: [] };
     if (options.index) {
-        if (options.key) {
-            if (typeof options.key === 'number') {
-                req.json.inputs.index = options.index + '_int';
-            } else {
-                req.json.inputs.index = options.index + '_bin';
-            }
-            req.json.inputs.key = options.key;
-        } else if (options.start && options.end) {
-            if (typeof options.start === 'number' && typeof options.end === 'number') {
-                req.json.inputs.index = options.index + '_int';
-            } else {
-                req.json.inputs.index = options.index + '_bin';
-            }
-            req.json.inputs.start = options.start;
-            req.json.inputs.end = options.end;
+        if (!Array.isArray(options.index)) options.index = [options.index];
+        var first = options.index.shift(),
+            key = Object.keys(first)[0],
+            val = first[key];
+
+        req.json.inputs.index = buildIndex(key, val);
+        if (typeof val === 'object') {
+            req.json.inputs.start = val.start;
+            req.json.inputs.end = val.end;
+        } else {
+            req.json.inputs.key = val;
         }
     } else if (options.key) {
         req.json.inputs.key = options.key;
@@ -211,7 +285,20 @@ SimpleRiak.prototype.mapred = function (options, callback) {
         return this_phase;
     }
 
-    req.json.query = [];
+    if (options.index.length > 0) {
+        var index = options.index.map(function (index) {
+            var key = Object.keys(index)[0],
+                val = index[key],
+                temp;
+
+            key = buildIndex(key, val);
+            temp = [key, val];
+            return temp;
+        });
+
+        req.json.query.push(addPhase('map', { source: mapToMap, arg: index }));
+    }
+
     if (options.map) req.json.query.push(addPhase('map', options.map));
     if (options.reduce) req.json.query.push(addPhase('reduce', options.reduce));
     if (options.link) {
