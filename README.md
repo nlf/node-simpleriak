@@ -188,11 +188,12 @@ or a function directly
 riak.mapred({ map: map }, callback);
 ```
 
-You may specify a bucket, a bucket and key, or a bucket and an index using an exact match or range.
+You may specify a bucket, a bucket and key, an array of keys, or a bucket and an index using an exact match or range.
 
 ```javascript
 riak.mapred({ bucket: 'test2', map: 'Riak.mapValuesJson' }, callback);
 riak.mapred({ key: 'test', map: 'Riak.mapValuesJson' }, callback); // default bucket is used
+riak.mapred({ key: ['test', 'test2'], map: 'Riak.mapValuesJson' }, callback);
 riak.mapred({ index: { creator: 'me' }, map: 'Riak.mapValuesJson' }, callback);
 ```
 
