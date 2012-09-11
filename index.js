@@ -73,7 +73,7 @@ function mapIndexes(v, keyData, arg) {
 
 SimpleRiak.prototype.buildIndexMap = function (bucket, index) {
     var req = {};
-    if (!Array.isArray(index) || index.length === 1) {
+    if ((!Array.isArray(index) || index.length === 1)) {
         if (Array.isArray(index)) index = index[0];
         var ind = Object.keys(index)[0],
             val = index[ind];
@@ -87,6 +87,7 @@ SimpleRiak.prototype.buildIndexMap = function (bucket, index) {
         var first = index.shift();
         req.bucket = bucket;
         req.index = first;
+        req.map = { source: mapIndexes };
 
         index = index.map(function (index) {
             var key = Object.keys(index)[0],
@@ -97,8 +98,7 @@ SimpleRiak.prototype.buildIndexMap = function (bucket, index) {
             temp = [key, val];
             return temp;
         });
-
-        req.map = { source: mapIndexes, arg: index };
+        req.map.arg = index;
     }
     return req;
 };
@@ -131,6 +131,7 @@ function respond(callback) {
 }
 
 exports.createClient = function (options) {
+    options = options || {};
     options.host = options.host || 'localhost';
     options.port = options.port || 8098;
     return new SimpleRiak(options);
@@ -183,26 +184,44 @@ SimpleRiak.prototype.setBucket = function (options, callback) {
     if (!bucket) return callback(new Error('No bucket specified'));
     delete options.bucket;
 
-    request.put({ uri: this.buildURL('buckets', bucket, 'props'), json: options }, respond(callback));
+    request.put({ uri: this.buildURL('buckets', bucket, 'props'), json: { props: options } }, respond(callback));
 };
 
 SimpleRiak.prototype.get = function (options, callback) {
     var bucket = options.bucket || this.bucket;
     if (!bucket) return callback(new Error('No bucket specified'));
+    function map(v) {
+        return [v.values[0].data];
+    }
     function reduce(v) {
         v = v.map(function (item) {
-            return JSON.parse(item.values[0].data);
+            return item.values[0].data;
         });
         return v;
     }
     var req = {};
-    if (options.index) {
-        req = this.buildIndexMap(bucket, options.index);
+    if (options.index && Array.isArray(options.index) && options.index.length > 1) {
+        req = this.buildIndexMap(bucket, options.index, true);
         req.reduce = reduce;
+        this.mapred(req, callback);
+    } else if (options.index && (!Array.isArray(options.index) || options.index.length === 1)) {
+        if (Array.isArray(options.index)) options.index = options.index[0];
+        req.bucket = bucket;
+        req.index = options.index;
+        req.map = map;
         this.mapred(req, callback);
     } else {
         req.uri = this.buildURL('buckets', bucket, 'keys', options.key);
-        request.get(req, respond(callback));
+        request.get(req, function (err, res, body) {
+            //this is ugly and should be handled better
+            if (res.statusCode === 300) {
+                body = body.split('\n');
+                var new_req = { uri: req.uri + '?vtag=' + body[2] };
+                request.get(new_req, respond(callback));
+            } else {
+                respond(callback)(err, res, body);
+            }
+        });
     }
 };
 
@@ -262,7 +281,13 @@ SimpleRiak.prototype.mapred = function (options, callback) {
             req.json.inputs.key = val;
         }
     } else if (options.key) {
-        req.json.inputs.key = options.key;
+        if (!Array.isArray(options.key)) {
+            req.json.inputs = [[bucket, options.key]];
+        } else {
+            req.json.inputs = options.key.map(function (key) {
+                return [bucket, key];
+            });
+        }
     } else {
         req.json.inputs = bucket;
     }
@@ -285,7 +310,7 @@ SimpleRiak.prototype.mapred = function (options, callback) {
         return this_phase;
     }
 
-    if (options.index.length > 0) {
+    if (options.index && options.index.length > 0) {
         var index = options.index.map(function (index) {
             var key = Object.keys(index)[0],
                 val = index[key],
@@ -308,6 +333,7 @@ SimpleRiak.prototype.mapred = function (options, callback) {
         phase.link.keep = options.link.keep || false;
         req.json.query.push(phase);
     }
+    //console.log(require('util').inspect(req, false, null, true));
     request.post(req, respond(callback));
 };
 
