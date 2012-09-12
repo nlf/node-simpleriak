@@ -120,9 +120,11 @@ SimpleRiak.prototype.buildURL = function () {
 function respond(callback) {
     return function (err, res, body) {
         if (err) return callback(err);
-        if (res.statusCode >= 400) return callback(new Error(http.STATUS_CODES[res.statusCode]));
         if (isJSON(body)) body = toJSON(body);
         var response = { data: body, headers: res.headers, statusCode: res.statusCode };
+        if (res.statusCode >= 400) {
+            return callback(new Error(http.STATUS_CODES[res.statusCode]), response);
+        }
         if (res.headers.location) {
             response.key = res.headers.location.slice(res.headers.location.lastIndexOf('/') + 1);
         }

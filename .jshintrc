@@ -23,6 +23,7 @@
         "Buffer",
         "module",
         "describe",
-        "it"
+        "it",
+        "before"
     ]
 }
