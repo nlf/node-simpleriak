@@ -64,6 +64,18 @@ riak.getKeys({ index: { count: { start: 5, end: 10 } } }, function (err, reply) 
 When using an index, you may either specify a start and end to be used with riak's range finding, or
 a key which will search for an exact match.
 
+List indexes (matching a key)
+-----------------------------
+
+```javascript
+riak.getIndexes({ key: 'test' }, function (err, reply) {
+    console.log(reply.data);
+});
+```
+
+This is a utility function to retrieve and parse the indexes associated with a key. It can be useful, for
+instance if you store permissions in an index and need to check it before acting on the key.
+
 Get bucket properties
 ---------------------
 

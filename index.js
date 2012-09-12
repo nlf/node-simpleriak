@@ -263,24 +263,37 @@ SimpleRiak.prototype.put = function (options, callback) {
     }
 };
 
-SimpleRiak.prototype.modify = function (options, callback) {
+function parseIndex(headers) {
+    var indexes = {};
+    Object.keys(headers).forEach(function (header) {
+        var match = header.match(/^x-riak-index-(\w+)/);
+        if (match) {
+            var type = match[1].match(/_(?!.*_)(\w+)?$/)[1],
+                index = match[1].slice(0, match[1].length - type.length - 1),
+                val = headers[header];
+            indexes[index] = type === 'bin' ? val : parseInt(val, 10);
+        }
+    });
+    return indexes;
+}
+
+SimpleRiak.prototype.getIndexes = function (options, callback) {
     var bucket = options.bucket || this.bucket;
     if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     if (!options.key) return callback(new Error('Must specify key'), { statusCode: 400 });
 
-    function parseIndex(headers) {
-        var indexes = {};
-        Object.keys(headers).forEach(function (header) {
-            var match = header.match(/^x-riak-index-(\w+)/);
-            if (match) {
-                var type = match[1].match(/_(?!.*_)(\w+)?$/)[1],
-                    index = match[1].slice(0, match[1].length - type.length - 1),
-                    val = headers[header];
-                indexes[index] = type === 'bin' ? val : parseInt(val, 10);
-            }
-        });
-        return indexes;
-    }
+    var req = { uri: this.buildURL('buckets', bucket, 'keys', options.key) };
+    request.head(req, function (err, res, body) {
+        if (err || res.statusCode >= 400) return callback(err, { statusCode: res.statusCode });
+        var indexes = parseIndex(res.headers);
+        callback(null, { headers: res.headers, statusCode: res.statusCode, data: indexes });
+    });    
+};
+
+SimpleRiak.prototype.modify = function (options, callback) {
+    var bucket = options.bucket || this.bucket;
+    if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
+    if (!options.key) return callback(new Error('Must specify key'), { statusCode: 400 });
 
     function mergeIndexes(oldIndex, newIndex) {
         var ret = oldIndex;

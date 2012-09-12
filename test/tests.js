@@ -34,6 +34,19 @@ describe('put', function () {
     });
 });
 
+describe('getIndexes', function () {
+    it('can list indexes', function (done) {
+        riak.getIndexes({ key: 'test_multi' }, function (err, reply) {
+            reply.statusCode.should.equal(200);
+            reply.data.should.have.ownProperty('test');
+            reply.data.test.should.equal('two_index');
+            reply.data.should.have.ownProperty('test2');
+            reply.data.test2.should.equal('two_index');
+            done(err);
+        });
+    });
+});
+
 describe('get', function () {
     it('can get an item', function (done) {
         riak.get({ key: 'test' }, function (err, reply) {
