@@ -157,7 +157,7 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
     }
 
     var bucket = options.bucket || this.bucket;
-    if (!bucket) return callback(new Error('No bucket specified'));
+    if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     if (options.index) {
         var req = this.buildIndexMap(bucket, options.index);
         if (!Array.isArray(options.index)) {
@@ -177,13 +177,13 @@ SimpleRiak.prototype.getBucket = function (options, callback) {
         options = {};
     }
     var bucket = options.bucket || this.bucket;
-    if (!bucket) return callback(new Error('No bucket specified'));
+    if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     request.get({ uri: this.buildURL('buckets', bucket, 'props') }, respond(callback));
 };
 
 SimpleRiak.prototype.setBucket = function (options, callback) {
     var bucket = options.bucket || this.bucket;
-    if (!bucket) return callback(new Error('No bucket specified'));
+    if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     delete options.bucket;
 
     request.put({ uri: this.buildURL('buckets', bucket, 'props'), json: { props: options } }, respond(callback));
@@ -191,7 +191,7 @@ SimpleRiak.prototype.setBucket = function (options, callback) {
 
 SimpleRiak.prototype.get = function (options, callback) {
     var bucket = options.bucket || this.bucket;
-    if (!bucket) return callback(new Error('No bucket specified'));
+    if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     function map(v) {
         return [v.values[0].data];
     }
@@ -229,7 +229,7 @@ SimpleRiak.prototype.get = function (options, callback) {
 
 SimpleRiak.prototype.put = function (options, callback) {
     var bucket = options.bucket || this.bucket;
-    if (!bucket) return callback(new Error('No bucket specified'));
+    if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     var req = { headers: {} };
     if (isJSON(options.data)) {
         req.json = toJSON(options.data);
@@ -265,8 +265,8 @@ SimpleRiak.prototype.put = function (options, callback) {
 
 SimpleRiak.prototype.modify = function (options, callback) {
     var bucket = options.bucket || this.bucket;
-    if (!bucket) return callback(new Error('No bucket specified'));
-    if (!options.key) return callback(new Error('Must specify key'));
+    if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
+    if (!options.key) return callback(new Error('Must specify key'), { statusCode: 400 });
 
     function parseIndex(headers) {
         var indexes = {};
@@ -307,13 +307,13 @@ SimpleRiak.prototype.modify = function (options, callback) {
 
 SimpleRiak.prototype.del = function (options, callback) {
     var bucket = options.bucket || this.bucket;
-    if (!bucket) return callback(new Error('No bucket specified'));
+    if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     request.del({ uri: this.buildURL('buckets', bucket, 'keys', options.key) }, respond(callback));
 };
 
 SimpleRiak.prototype.mapred = function (options, callback) {
     var bucket = options.bucket || this.bucket;
-    if (!bucket) return callback(new Error('No bucket specified'));
+    if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     var req = {};
     req.uri = this.buildURL('mapred');
     req.json = { inputs: { bucket: bucket }, query: [] };
