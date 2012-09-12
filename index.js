@@ -296,7 +296,7 @@ SimpleRiak.prototype.modify = function (options, callback) {
 
     var self = this;
     self.get({ bucket: bucket, key: options.key }, function (err, reply) {
-        if (err) return callback(err);
+        if (err) return callback(err, reply);
         var transform = { bucket: bucket, key: options.key };
         transform.index = parseIndex(reply.headers);
         if (options.index) transform.index = mergeIndexes(transform.index, options.index);
