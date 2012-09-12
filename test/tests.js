@@ -152,6 +152,53 @@ describe('getKeys', function () {
     });
 });
 
+describe('modify', function () {
+    before(function (done) {
+        riak.put({ key: 'test_modify', data: 'test' }, function (err, reply) {
+            riak.get({ key: 'test_modify' }, function (err, reply) {
+                done(err);
+            });
+        });
+    });
+
+    it('can modify a body', function (done) {
+        riak.modify({ key: 'test_modify', transform: function (data) { return data + ' again'; } }, function (err, reply) {
+            reply.statusCode.should.equal(204);
+            riak.get({ key: 'test_modify' }, function (err, reply) {
+                reply.statusCode.should.equal(200);
+                reply.data.should.equal('test again');
+                done(err);
+            });
+        });
+    });
+
+    it('can add an index', function (done) {
+        riak.modify({ key: 'test_modify', index: { sample: 'changethis' } }, function (err, reply) {
+            reply.statusCode.should.equal(204);
+            riak.getKeys({ index: { sample: 'changethis' } }, function (err, reply) {
+                reply.statusCode.should.equal(200);
+                reply.data.should.have.ownProperty('keys');
+                reply.data.keys.should.be.an.instanceOf(Array);
+                reply.data.keys.length.should.equal(1);
+                done(err);
+            });
+        });
+    });
+
+    it('can remove an index', function (done) {
+        riak.modify({ key: 'test_modify', index: { sample: undefined } }, function (err, reply) {
+            reply.statusCode.should.equal(204);
+            riak.getKeys({ index: { sample: 'changethis' } }, function (err, reply) {
+                reply.statusCode.should.equal(200);
+                reply.data.should.have.ownProperty('keys');
+                reply.data.keys.should.be.an.instanceOf(Array);
+                reply.data.keys.length.should.equal(0);
+                done(err);
+            });
+        });
+    });
+});
+
 describe('del', function () {
     it('can delete a key', function (done) {
         riak.del({ key: 'test' }, function (err, reply) {

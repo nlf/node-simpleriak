@@ -121,7 +121,7 @@ function respond(callback) {
     return function (err, res, body) {
         if (err) return callback(err);
         if (res.statusCode >= 400) return callback(new Error(http.STATUS_CODES[res.statusCode]));
-        body = toJSON(body);
+        if (isJSON(body)) body = toJSON(body);
         var response = { data: body, headers: res.headers, statusCode: res.statusCode };
         if (res.headers.location) {
             response.key = res.headers.location.slice(res.headers.location.lastIndexOf('/') + 1);
@@ -229,13 +229,6 @@ SimpleRiak.prototype.put = function (options, callback) {
     var bucket = options.bucket || this.bucket;
     if (!bucket) return callback(new Error('No bucket specified'));
     var req = { headers: {} };
-    if (options.key) {
-        req.method = 'put';
-        req.uri = this.buildURL('buckets', bucket, 'keys', options.key);
-    } else {
-        req.method = 'post';
-        req.uri = this.buildURL('buckets', bucket, 'keys');
-    }
     if (isJSON(options.data)) {
         req.json = toJSON(options.data);
     } else {
@@ -252,7 +245,62 @@ SimpleRiak.prototype.put = function (options, callback) {
             req.headers['x-riak-index-' + index] = options.index[ind];
         });
     }
-    request(req, respond(callback));
+    if (options.key) {
+        req.method = 'put';
+        req.uri = this.buildURL('buckets', bucket, 'keys', options.key);
+        request.head({ uri: req.uri }, function (err, res, body) {
+            if (res.headers['x-riak-vclock']) {
+                req.headers['x-riak-vclock'] = res.headers['x-riak-vclock'];
+            }
+            request(req, respond(callback));
+        });
+    } else {
+        req.method = 'post';
+        req.uri = this.buildURL('buckets', bucket, 'keys');
+        request(req, respond(callback));
+    }
+};
+
+SimpleRiak.prototype.modify = function (options, callback) {
+    var bucket = options.bucket || this.bucket;
+    if (!bucket) return callback(new Error('No bucket specified'));
+    if (!options.key) return callback(new Error('Must specify key'));
+
+    function parseIndex(headers) {
+        var indexes = {};
+        Object.keys(headers).forEach(function (header) {
+            var match = header.match(/^x-riak-index-(\w+)/);
+            if (match) {
+                var type = match[1].match(/_(?!.*_)(\w+)?$/)[1],
+                    index = match[1].slice(0, match[1].length - type.length - 1),
+                    val = headers[header];
+                indexes[index] = type === 'bin' ? val : parseInt(val, 10);
+            }
+        });
+        return indexes;
+    }
+
+    function mergeIndexes(oldIndex, newIndex) {
+        var ret = oldIndex;
+        Object.keys(newIndex).forEach(function (key) {
+            if (newIndex[key] === undefined) {
+                delete ret[key];
+            } else {
+                ret[key] = newIndex[key];
+            }
+        });
+        return ret;
+    }
+
+    var self = this;
+    self.get({ bucket: bucket, key: options.key }, function (err, reply) {
+        var transform = { bucket: bucket, key: options.key };
+        transform.index = parseIndex(reply.headers);
+        if (options.index) transform.index = mergeIndexes(transform.index, options.index);
+        //if (isJSON(reply.data)) reply.data = toJSON(reply.data);
+        if (typeof options.transform === 'function') transform.data = options.transform(reply.data);
+        self.put(transform, callback);
+    });
 };
 
 SimpleRiak.prototype.del = function (options, callback) {

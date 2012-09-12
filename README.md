@@ -159,6 +159,31 @@ riak.del({ key: 'creator' }, function (err, reply) {
 Note that this function does not work with an index, this is by design. If you need to delete all keys
 that match an index, use getKeys and iterate the results.
 
+Modify a key's contents
+-----------------------
+
+SimpleRiak includes a simple modify function that performs a GET request, alters the response, then saves it
+back to the correct key.
+
+```javascript
+function transform(data) {
+    return data + ' is now changed!';
+}
+
+riak.modify({ key: 'test', transform: transform }, function (err, reply) {
+    console.log(err);
+});
+```
+
+Note that this function only works by key. The index property here is used to modify the indexes stored for the
+specific key. To remove an index completely, set its value to undefined.
+
+```javascript
+riak.modify({ key: 'test', index: { new_index: 'this is new', old_index: undefined } }, function (err, reply) {
+    console.log(err); //the key test will now have the index "old_index" removed, and the index "new_index" added with a value of "this is new"
+});
+```
+
 MapReduce
 ---------
 

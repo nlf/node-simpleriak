@@ -1,14 +1,14 @@
 {
   "name": "simpleriak",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "a very simple riak http client",
   "main": "index.js",
   "dependencies": {
-    "request": "~2.11.1",
-    "precommit-hook": "~0.1.0"
+    "request": "~2.11.1"
   },
   "devDependencies": {
-    "should": ""
+    "should": "",
+    "precommit-hook": "~0.1.0"
   },
   "scripts": {
     "test": "mocha"
