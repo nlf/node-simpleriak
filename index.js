@@ -119,9 +119,9 @@ SimpleRiak.prototype.buildURL = function () {
 
 function respond(callback) {
     return function (err, res, body) {
-        if (err) return callback(err);
         if (isJSON(body)) body = toJSON(body);
         var response = { data: body, headers: res.headers, statusCode: res.statusCode };
+        if (err) return callback(err, response);
         if (res.statusCode >= 400) {
             return callback(new Error(http.STATUS_CODES[res.statusCode]), response);
         }
