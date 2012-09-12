@@ -296,10 +296,11 @@ SimpleRiak.prototype.modify = function (options, callback) {
 
     var self = this;
     self.get({ bucket: bucket, key: options.key }, function (err, reply) {
+        if (err) return callback(err);
         var transform = { bucket: bucket, key: options.key };
         transform.index = parseIndex(reply.headers);
         if (options.index) transform.index = mergeIndexes(transform.index, options.index);
-        //if (isJSON(reply.data)) reply.data = toJSON(reply.data);
+        if (isJSON(reply.data)) reply.data = toJSON(reply.data);
         if (typeof options.transform === 'function') transform.data = options.transform(reply.data);
         self.put(transform, callback);
     });
