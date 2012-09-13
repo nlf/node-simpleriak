@@ -284,7 +284,8 @@ SimpleRiak.prototype.getIndexes = function (options, callback) {
 
     var req = { uri: this.buildURL('buckets', bucket, 'keys', options.key) };
     request.head(req, function (err, res, body) {
-        if (err || res.statusCode >= 400) return callback(err, { statusCode: res.statusCode });
+        if (err) return callback(err, { statusCode: res.statusCode });
+        if (res.statusCode >= 400) return callback(new Error(http.STATUS_CODES[res.statusCode]), { body: body, headers: res.headers, statusCode: res.statusCode }); 
         var indexes = parseIndex(res.headers);
         callback(null, { headers: res.headers, statusCode: res.statusCode, data: indexes });
     });    
