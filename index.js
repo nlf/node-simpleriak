@@ -250,12 +250,17 @@ SimpleRiak.prototype.put = function (options, callback) {
     if (options.key) {
         req.method = 'put';
         req.uri = this.buildURL('buckets', bucket, 'keys', options.key);
-        request.head({ uri: req.uri }, function (err, res, body) {
-            if (res.headers['x-riak-vclock']) {
-                req.headers['x-riak-vclock'] = res.headers['x-riak-vclock'];
-            }
+        if (options.vclock) {
+            req.headers['x-riak-vclock'] = options.vclock;
             request(req, respond(callback));
-        });
+        } else {
+            request.head({ uri: req.uri }, function (err, res, body) {
+                if (res.headers['x-riak-vclock']) {
+                    req.headers['x-riak-vclock'] = res.headers['x-riak-vclock'];
+                }
+                request(req, respond(callback));
+            });
+        }
     } else {
         req.method = 'post';
         req.uri = this.buildURL('buckets', bucket, 'keys');
@@ -311,7 +316,7 @@ SimpleRiak.prototype.modify = function (options, callback) {
     var self = this;
     self.get({ bucket: bucket, key: options.key }, function (err, reply) {
         if (err) return callback(err, reply);
-        var transform = { bucket: bucket, key: options.key };
+        var transform = { bucket: bucket, key: options.key, vclock: reply.headers['x-riak-vclock'] };
         transform.index = parseIndex(reply.headers);
         if (options.index) transform.index = mergeIndexes(transform.index, options.index);
         if (isJSON(reply.data)) reply.data = toJSON(reply.data);
