@@ -19,6 +19,16 @@ describe('put', function () {
         });
     });
 
+    it('returns the body when asked', function (done) {
+        riak.put({ data: 'test', returnbody: true }, function (err, reply) {
+            reply.statusCode.should.equal(201);
+            reply.data.should.equal('test');
+            riak.del({ key: reply.key }, function (err, reply) {
+                done(err);
+            });
+        });
+    });
+
     it('can create an item with an index', function (done) {
         riak.put({ data: 'one index', key: 'test_one', index: { test: 'one_index' } }, function (err, reply) {
             reply.statusCode.should.equal(204);
@@ -176,7 +186,7 @@ describe('modify', function () {
 
     it('can modify a body', function (done) {
         riak.modify({ key: 'test_modify', transform: function (data) { return data + ' again'; } }, function (err, reply) {
-            reply.statusCode.should.equal(204);
+            reply.statusCode.should.equal(200);
             riak.get({ key: 'test_modify' }, function (err, reply) {
                 reply.statusCode.should.equal(200);
                 reply.data.should.equal('test again');

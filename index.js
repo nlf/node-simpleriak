@@ -231,6 +231,7 @@ SimpleRiak.prototype.put = function (options, callback) {
     var bucket = options.bucket || this.bucket;
     if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     var req = { headers: {} };
+    if (options.returnbody) req.qs = { returnbody: true };
     if (isJSON(options.data)) {
         req.json = toJSON(options.data);
     } else {
@@ -316,7 +317,7 @@ SimpleRiak.prototype.modify = function (options, callback) {
     var self = this;
     self.get({ bucket: bucket, key: options.key }, function (err, reply) {
         if (err) return callback(err, reply);
-        var transform = { bucket: bucket, key: options.key, vclock: reply.headers['x-riak-vclock'] };
+        var transform = { bucket: bucket, key: options.key, vclock: reply.headers['x-riak-vclock'], returnbody: true };
         transform.index = parseIndex(reply.headers);
         if (options.index) transform.index = mergeIndexes(transform.index, options.index);
         if (isJSON(reply.data)) reply.data = toJSON(reply.data);
