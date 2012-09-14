@@ -1,17 +1,18 @@
 {
   "name": "simpleriak",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "a very simple riak http client",
   "main": "index.js",
   "dependencies": {
     "request": "~2.11.1"
   },
   "devDependencies": {
-    "should": "",
+    "should": "~1.1.0",
+    "mocha": "~1.4.2",
     "precommit-hook": "~0.1.0"
   },
   "scripts": {
-    "test": "mocha"
+    "test": "node test"
   },
   "repository": {
     "type": "git",
