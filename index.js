@@ -326,7 +326,11 @@ SimpleRiak.prototype.modify = function (options, callback) {
         transform.index = parseIndex(reply.headers);
         if (options.index) transform.index = mergeIndexes(transform.index, options.index);
         if (isJSON(reply.data)) reply.data = toJSON(reply.data);
-        if (typeof options.transform === 'function') transform.data = options.transform(reply.data);
+        if (typeof options.transform === 'function') {
+            transform.data = options.transform(reply.data);
+        } else {
+            transform.data = reply.data;
+        }
         self.put(transform, callback);
     });
 };
