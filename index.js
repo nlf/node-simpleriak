@@ -198,11 +198,11 @@ SimpleRiak.prototype.get = function (options, callback) {
     var bucket = options.bucket || this.bucket;
     if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     function map(v) {
-        return [v.values[0].data];
+        return [{key: v.key, data: v.values[0].data}];
     }
     function reduce(v) {
         v = v.map(function (item) {
-            return item.values[0].data;
+            return {key: item.key, data: item.values[0].data};
         });
         return v;
     }

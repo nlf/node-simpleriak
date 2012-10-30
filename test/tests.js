@@ -71,7 +71,8 @@ describe('get', function () {
             reply.statusCode.should.equal(200);
             reply.data.should.be.an.instanceOf(Array);
             reply.data.length.should.equal(1);
-            reply.data[0].should.equal('one index');
+            reply.data[0].key.should.equal('test_one');
+            reply.data[0].data.should.equal('one index');
             done(err);
         });
     });
@@ -81,7 +82,8 @@ describe('get', function () {
             reply.statusCode.should.equal(200);
             reply.data.should.be.an.instanceOf(Array);
             reply.data.length.should.equal(1);
-            reply.data[0].should.equal('two indexes');
+            reply.data[0].key.should.equal('test_multi');
+            reply.data[0].data.should.equal('two indexes');
             done(err);
         });
     });
@@ -197,7 +199,7 @@ describe('modify', function () {
 
     it('can add an index', function (done) {
         riak.modify({ key: 'test_modify', index: { sample: 'changethis' } }, function (err, reply) {
-            reply.statusCode.should.equal(204);
+            reply.statusCode.should.equal(200);
             riak.getKeys({ index: { sample: 'changethis' } }, function (err, reply) {
                 reply.statusCode.should.equal(200);
                 reply.data.should.have.ownProperty('keys');
@@ -210,7 +212,7 @@ describe('modify', function () {
 
     it('can remove an index', function (done) {
         riak.modify({ key: 'test_modify', index: { sample: undefined } }, function (err, reply) {
-            reply.statusCode.should.equal(204);
+            reply.statusCode.should.equal(200);
             riak.getKeys({ index: { sample: 'changethis' } }, function (err, reply) {
                 reply.statusCode.should.equal(200);
                 reply.data.should.have.ownProperty('keys');
