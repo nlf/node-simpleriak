@@ -133,7 +133,7 @@ function respond(callback) {
         if (res.headers.location) {
             response.key = res.headers.location.slice(res.headers.location.lastIndexOf('/') + 1);
         }
-        callback(null, response);
+        if (typeof callback === 'function') callback(null, response);
     };
 }
 
