@@ -380,22 +380,27 @@ SimpleRiak.prototype.mapred = function (options, callback) {
         req.json.inputs = bucket;
     }
 
-    function addPhase(type, phase) {
-        var this_phase = {};
-        this_phase[type] = { language: 'javascript' };
-        if (typeof phase === 'string') {
-            this_phase[type].name = phase;
-        } else if (typeof phase === 'function') {
-            this_phase[type].source = phase.toString();
-        } else if (typeof phase === 'object') {
-            if (phase.name) {
-                this_phase[type].name = phase.name;
-            } else if (phase.source) {
-                this_phase[type].source = phase.source.toString();
-            }
-            if (phase.arg) this_phase[type].arg = phase.arg;
-        }
-        return this_phase;
+    function addPhase(type, phases) {
+        var phaselist = [];
+        if (!Array.isArray(phases)) phases = [phases];
+        phases.forEach(function (phase) { 
+            var this_phase = {};
+            this_phase[type] = { language: 'javascript' };
+            if (typeof phase === 'string') {
+                this_phase[type].name = phase;
+            } else if (typeof phase === 'function') {
+                this_phase[type].source = phase.toString();
+            } else if (typeof phase === 'object') {
+                if (phase.name) {
+                    this_phase[type].name = phase.name;
+                } else if (phase.source) {
+                    this_phase[type].source = phase.source.toString();
+                }
+                if (phase.arg) this_phase[type].arg = phase.arg;
+            };
+            phaselist.push(this_phase);
+        });
+        return phaselist;
     }
 
     if (options.index && options.index.length > 0) {
@@ -409,11 +414,11 @@ SimpleRiak.prototype.mapred = function (options, callback) {
             return temp;
         });
 
-        req.json.query.push(addPhase('map', { source: mapToMap, arg: index }));
+        req.json.query = req.json.query.concat(addPhase('map', { source: mapToMap, arg: index }));
     }
 
-    if (options.map) req.json.query.push(addPhase('map', options.map));
-    if (options.reduce) req.json.query.push(addPhase('reduce', options.reduce));
+    if (options.map) req.json.query = req.json.query.concat(addPhase('map', options.map));
+    if (options.reduce) req.json.query = req.json.query.concat(addPhase('reduce', options.reduce));
     if (options.link) {
         var phase = { link: { } };
         phase.link.bucket = options.link.bucket || this.bucket;
