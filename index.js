@@ -403,6 +403,20 @@ SimpleRiak.prototype.mapred = function (options, callback) {
         return phaselist;
     }
 
+    if (options.link) {
+        if (!Array.isArray(options.link)) options.link = [options.link];
+        var links = [],
+            phase;
+        options.link.forEach(function (link) {
+            phase = { link: { } };
+            phase.link.bucket = link.bucket || this.bucket;
+            phase.link.tag = link.tag || '_';
+            phase.link.keep = link.keep || false;
+            links.push(phase);
+        });
+        req.json.query = req.json.query.concat(links);
+    }
+
     if (options.index && options.index.length > 0) {
         var index = options.index.map(function (index) {
             var key = Object.keys(index)[0],
@@ -419,13 +433,6 @@ SimpleRiak.prototype.mapred = function (options, callback) {
 
     if (options.map) req.json.query = req.json.query.concat(addPhase('map', options.map));
     if (options.reduce) req.json.query = req.json.query.concat(addPhase('reduce', options.reduce));
-    if (options.link) {
-        var phase = { link: { } };
-        phase.link.bucket = options.link.bucket || this.bucket;
-        phase.link.tag = options.link.tag || '_';
-        phase.link.keep = options.link.keep || false;
-        req.json.query.push(phase);
-    }
     //console.log(require('util').inspect(req, false, null, true));
     request.post(req, respond(callback));
 };
