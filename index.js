@@ -253,6 +253,14 @@ SimpleRiak.prototype.put = function (options, callback) {
             req.headers['x-riak-index-' + index] = options.index[ind];
         });
     }
+    if (options.link) {
+        var tag = '';
+        Object.keys(options.link).forEach(function (link) {
+            if (tag) tag += ', ';
+            tag += '<' + options.link[link] + '>; riaktag="' + link + '"';
+        });
+        req.headers['link'] = tag;
+    }
     if (options.key) {
         req.method = 'put';
         req.uri = this.buildURL('buckets', bucket, 'keys', options.key);
