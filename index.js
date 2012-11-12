@@ -154,6 +154,10 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
         options = {};
     }
 
+    function map(v) {
+        return [v];
+    }
+
     function reduce(v) {
         v = v.map(function (item) {
             return item.key;
@@ -171,6 +175,10 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
             req.reduce = { source: reduce };
             this.mapred(req, callback);
         }
+    } else if (options.search) {
+        var req = { bucket: bucket, search: options.search, map: map, reduce: reduce };
+        if (options.filter) req.filter = options.filter;
+        this.mapred(req, callback);
     } else {
         request.get({ uri: this.buildURL('buckets', bucket, 'keys'), qs: { keys: true } }, respond(callback));
     }
@@ -215,6 +223,12 @@ SimpleRiak.prototype.get = function (options, callback) {
         if (Array.isArray(options.index)) options.index = options.index[0];
         req.bucket = bucket;
         req.index = options.index;
+        req.map = map;
+        this.mapred(req, callback);
+    } else if (options.search) {
+        req.bucket = bucket;
+        req.search = options.search;
+        if (options.filter) req.filter = options.filter;
         req.map = map;
         this.mapred(req, callback);
     } else {
@@ -368,6 +382,9 @@ SimpleRiak.prototype.mapred = function (options, callback) {
         } else {
             req.json.inputs.key = val;
         }
+    } else if (options.search) {
+        req.json.inputs.query = options.search;
+        if (options.filter) req.json.inputs.filter = options.filter;
     } else if (options.key) {
         if (!Array.isArray(options.key)) {
             req.json.inputs = [[bucket, options.key]];
