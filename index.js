@@ -155,13 +155,11 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
     }
 
     function map(v) {
-        return [v];
+        if (v.values[0].metadata['X-Riak-Deleted']) return [];
+        return [v.key];
     }
 
     function reduce(v) {
-        v = v.map(function (item) {
-            return item.key;
-        });
         return { keys: v };
     }
 
@@ -176,7 +174,7 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
             this.mapred(req, callback);
         }
     } else if (options.search) {
-        var req = { bucket: bucket, search: options.search, map: map, reduce: reduce };
+        var req = { bucket: bucket, search: options.search, map: map, reduce: [ 'Riak.filterNotFound', reduce ] };
         if (options.filter) req.filter = options.filter;
         this.mapred(req, callback);
     } else {
