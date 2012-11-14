@@ -410,6 +410,9 @@ SimpleRiak.prototype.mapred = function (options, callback) {
                     this_phase[type].name = phase.name;
                 } else if (phase.source) {
                     this_phase[type].source = phase.source.toString();
+                } else if (phase.bucket && phase.key) {
+                    this_phase[type].bucket = phase.bucket;
+                    this_phase[type].key = phase.key;
                 }
                 if (phase.arg) this_phase[type].arg = phase.arg;
             };
