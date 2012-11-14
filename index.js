@@ -182,6 +182,20 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
     }
 };
 
+SimpleRiak.prototype.search = function (options, callback) {
+    var req = this.buildURL('solr');
+    if (!options.index) options.index = options.bucket || this.bucket;
+    if (!options.index || !options.query) return callback(new Error('Must specify index and query'), { statusCode: 400 });
+    req += '/' + options.index + '/select?wt=json&q=' + options.query;
+    if (options.df) req += '&df=' + options.df;
+    if (options.q_op) req += '&q.op=' + options.q_op;
+    if (options.start) req += '&start=' + options.start;
+    if (options.rows) req += '&rows=' + options.rows;
+    if (options.sort) req += '&sort=' + options.sort;
+    if (options.filter) req += '&filter=' + options.filter;
+    request.get({ uri: encodeURI(req) }, respond(callback));
+};
+
 SimpleRiak.prototype.getBucket = function (options, callback) {
     if (typeof callback === 'undefined') {
         callback = options;
