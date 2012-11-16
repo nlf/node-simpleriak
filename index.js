@@ -163,10 +163,11 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
         return { keys: v };
     }
 
-    var bucket = options.bucket || this.bucket;
+    var bucket = options.bucket || this.bucket,
+        req;
     if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     if (options.index) {
-        var req = this.buildIndexMap(bucket, options.index);
+        req = this.buildIndexMap(bucket, options.index);
         if (!Array.isArray(options.index)) {
             request.get(req, respond(callback));
         } else {
@@ -174,7 +175,7 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
             this.mapred(req, callback);
         }
     } else if (options.search) {
-        var req = { bucket: bucket, search: options.search, map: map, reduce: [ 'Riak.filterNotFound', reduce ] };
+        req = { bucket: bucket, search: options.search, map: map, reduce: [ 'Riak.filterNotFound', reduce ] };
         if (options.filter) req.filter = options.filter;
         this.mapred(req, callback);
     } else {
@@ -247,7 +248,7 @@ SimpleRiak.prototype.get = function (options, callback) {
         req.uri = this.buildURL('buckets', bucket, 'keys', options.key);
         request.get(req, function (err, res, body) {
             //this is ugly and should be handled better
-            if (res.statusCode === 300) {
+            if (res && res.statusCode === 300) {
                 body = body.split('\n');
                 var new_req = { uri: req.uri + '?vtag=' + body[2] };
                 request.get(new_req, respond(callback));
@@ -285,7 +286,7 @@ SimpleRiak.prototype.put = function (options, callback) {
             if (tag) tag += ', ';
             tag += '<' + options.link[link] + '>; riaktag="' + link + '"';
         });
-        req.headers['link'] = tag;
+        req.headers.link = tag;
     }
     if (options.key) {
         req.method = 'put';
@@ -429,7 +430,7 @@ SimpleRiak.prototype.mapred = function (options, callback) {
                     this_phase[type].key = phase.key;
                 }
                 if (phase.arg) this_phase[type].arg = phase.arg;
-            };
+            }
             phaselist.push(this_phase);
         });
         return phaselist;
