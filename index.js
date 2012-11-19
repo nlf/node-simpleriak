@@ -415,7 +415,8 @@ SimpleRiak.prototype.mapred = function (options, callback) {
         if (!Array.isArray(phases)) phases = [phases];
         phases.forEach(function (phase) { 
             var this_phase = {};
-            this_phase[type] = { language: 'javascript' };
+            this_phase[type] = {};
+            this_phase[type].language = phase.language || 'javascript';
             if (typeof phase === 'string') {
                 this_phase[type].name = phase;
             } else if (typeof phase === 'function') {
@@ -428,6 +429,9 @@ SimpleRiak.prototype.mapred = function (options, callback) {
                 } else if (phase.bucket && phase.key) {
                     this_phase[type].bucket = phase.bucket;
                     this_phase[type].key = phase.key;
+                } else if (phase.module && phase.function) {
+                    this_phase[type].module = phase.module;
+                    this_phase[type].function = phase.function;
                 }
                 if (phase.arg) this_phase[type].arg = phase.arg;
             }

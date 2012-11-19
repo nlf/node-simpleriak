@@ -103,7 +103,6 @@ describe('getBuckets', function () {
             reply.statusCode.should.equal(200);
             reply.data.should.have.ownProperty('buckets');
             reply.data.buckets.should.be.an.instanceOf(Array);
-            reply.data.buckets.length.should.be.above(1);
             done(err);
         });
     });
