@@ -1,6 +1,7 @@
 var request = require('request'),
     querystring = require('querystring'),
-    http = require('http');
+    http = require('http'),
+    async = require('async');
 
 function SimpleRiak(options) {
     this.base_url = 'http://' + options.host + ':' + options.port;
@@ -71,34 +72,13 @@ function mapIndexes(v, keyData, arg) {
     return ret;
 }
 
-SimpleRiak.prototype.buildIndexMap = function (bucket, index) {
-    var req = {};
-    if ((!Array.isArray(index) || index.length === 1)) {
-        if (Array.isArray(index)) index = index[0];
-        var ind = Object.keys(index)[0],
-            val = index[ind];
-        ind = buildIndex(ind, val);
-        if (typeof val === 'object') {
-            req.uri = this.buildURL('buckets', bucket, 'index', ind, val.start, val.end);
-        } else {
-            req.uri = this.buildURL('buckets', bucket, 'index', ind, val);
-        }
+SimpleRiak.prototype.buildIndexMap = function (bucket, index, match) {
+    var req = { json: true },
+        ind = buildIndex(index, match);
+    if (typeof val === 'object') {
+        req.uri = this.buildURL('buckets', bucket, 'index', ind, match.start, match.end);
     } else {
-        var first = index.shift();
-        req.bucket = bucket;
-        req.index = first;
-        req.map = { source: mapIndexes };
-
-        index = index.map(function (index) {
-            var key = Object.keys(index)[0],
-                val = index[key],
-                temp;
-
-            key = buildIndex(key, val);
-            temp = [key, val];
-            return temp;
-        });
-        req.map.arg = index;
+        req.uri = this.buildURL('buckets', bucket, 'index', ind, match);
     }
     return req;
 };
@@ -144,6 +124,12 @@ exports.createClient = function (options) {
     return new SimpleRiak(options);
 };
 
+function _intersection(arr1, arr2) {
+    return arr1.filter(function (item) {
+        return ~arr2.indexOf(item);
+    });
+}
+
 SimpleRiak.prototype.getBuckets = function (callback) {
     request.get({ uri: this.buildURL('buckets'), qs: { buckets: true } }, respond(callback));
 };
@@ -164,16 +150,23 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
     }
 
     var bucket = options.bucket || this.bucket,
-        req;
+        req,
+        keys,
+        self = this;
     if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     if (options.index) {
-        req = this.buildIndexMap(bucket, options.index);
-        if (!Array.isArray(options.index)) {
-            request.get(req, respond(callback));
-        } else {
-            req.reduce = { source: reduce };
-            this.mapred(req, callback);
-        }
+        async.forEach(Object.getOwnPropertyNames(options.index), function (index, cb) {
+            request.get(self.buildIndexMap(bucket, index, options.index[index]), function (err, res, body) {
+                if (!Array.isArray(keys)) {
+                    keys = body.keys;
+                } else {
+                    keys = _intersection(keys, body.keys);
+                }
+                cb();
+            });
+        }, function (err) {
+            callback(null, { data: { keys: keys }, statusCode: 200 });
+        });
     } else if (options.search) {
         req = { bucket: bucket, search: options.search, map: map, reduce: [ 'Riak.filterNotFound', reduce ] };
         if (options.filter) req.filter = options.filter;
@@ -216,7 +209,8 @@ SimpleRiak.prototype.setBucket = function (options, callback) {
 };
 
 SimpleRiak.prototype.get = function (options, callback) {
-    var bucket = options.bucket || this.bucket;
+    var bucket = options.bucket || this.bucket,
+        self = this;
     if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     function map(v) {
         return [{key: v.key, data: v.values[0].data}];
@@ -228,16 +222,13 @@ SimpleRiak.prototype.get = function (options, callback) {
         return v;
     }
     var req = {};
-    if (options.index && Array.isArray(options.index) && options.index.length > 1) {
-        req = this.buildIndexMap(bucket, options.index, true);
-        req.reduce = reduce;
-        this.mapred(req, callback);
-    } else if (options.index && (!Array.isArray(options.index) || options.index.length === 1)) {
-        if (Array.isArray(options.index)) options.index = options.index[0];
-        req.bucket = bucket;
-        req.index = options.index;
-        req.map = map;
-        this.mapred(req, callback);
+    if (options.index) {
+        this.getKeys(options, function (err, reply) {
+            if (!reply.data.keys.length) return callback(null, { data: {}, statusCode: 404 });
+            req.key = reply.data.keys;
+            req.map = map;
+            self.mapred(req, callback);
+        });
     } else if (options.search) {
         req.bucket = bucket;
         req.search = options.search;
@@ -383,21 +374,17 @@ SimpleRiak.prototype.mapred = function (options, callback) {
     req.uri = this.buildURL('mapred');
     req.json = { inputs: { bucket: bucket }, query: [] };
     if (options.index) {
-        if (!Array.isArray(options.index)) options.index = [options.index];
-        var first = options.index.shift(),
-            key = Object.keys(first)[0],
-            val = first[key];
-
-        req.json.inputs.index = buildIndex(key, val);
-        if (typeof val === 'object') {
-            req.json.inputs.start = val.start;
-            req.json.inputs.end = val.end;
-        } else {
-            req.json.inputs.key = val;
-        }
+        this.getKeys({ index: options.index }, function (err, reply) {
+            if (err) return callback(err);
+            req.json.inputs = reply.data.keys.map(function (key) {
+                return [bucket, key];
+            });
+            makeRequest(req);
+        });
     } else if (options.search) {
         req.json.inputs.query = options.search;
         if (options.filter) req.json.inputs.filter = options.filter;
+        makeRequest(req);
     } else if (options.key) {
         if (!Array.isArray(options.key)) {
             req.json.inputs = [[bucket, options.key]];
@@ -406,8 +393,23 @@ SimpleRiak.prototype.mapred = function (options, callback) {
                 return [bucket, key];
             });
         }
+        makeRequest(req);
+    } else if (options.link) {
+        if (!Array.isArray(options.link)) options.link = [options.link];
+        var links = [],
+            phase;
+        options.link.forEach(function (link) {
+            phase = { link: { } };
+            phase.link.bucket = link.bucket || this.bucket;
+            phase.link.tag = link.tag || '_';
+            phase.link.keep = link.keep || false;
+            links.push(phase);
+        });
+        req.json.query = req.json.query.concat(links);
+        makeRequest(req);
     } else {
         req.json.inputs = bucket;
+        makeRequest(req);
     }
 
     function addPhase(type, phases) {
@@ -440,38 +442,12 @@ SimpleRiak.prototype.mapred = function (options, callback) {
         return phaselist;
     }
 
-    if (options.link) {
-        if (!Array.isArray(options.link)) options.link = [options.link];
-        var links = [],
-            phase;
-        options.link.forEach(function (link) {
-            phase = { link: { } };
-            phase.link.bucket = link.bucket || this.bucket;
-            phase.link.tag = link.tag || '_';
-            phase.link.keep = link.keep || false;
-            links.push(phase);
-        });
-        req.json.query = req.json.query.concat(links);
+    function makeRequest(req) {
+        if (options.map) req.json.query = req.json.query.concat(addPhase('map', options.map));
+        if (options.reduce) req.json.query = req.json.query.concat(addPhase('reduce', options.reduce));
+        //console.log(require('util').inspect(req, false, null, true));
+        request.post(req, respond(callback));
     }
-
-    if (options.index && options.index.length > 0) {
-        var index = options.index.map(function (index) {
-            var key = Object.keys(index)[0],
-                val = index[key],
-                temp;
-
-            key = buildIndex(key, val);
-            temp = [key, val];
-            return temp;
-        });
-
-        req.json.query = req.json.query.concat(addPhase('map', { source: mapToMap, arg: index }));
-    }
-
-    if (options.map) req.json.query = req.json.query.concat(addPhase('map', options.map));
-    if (options.reduce) req.json.query = req.json.query.concat(addPhase('reduce', options.reduce));
-    //console.log(require('util').inspect(req, false, null, true));
-    request.post(req, respond(callback));
 };
 
 SimpleRiak.prototype.ping = function (callback) {

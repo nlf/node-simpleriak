@@ -3,6 +3,11 @@ SimpleRiak is a very simple riak HTTP client. It wraps request and simplifies th
 Usage
 =====
 
+WARNING
+-------
+
+There is a breaking change in SimpleRiak 0.1.0. When doing getKeys, get, or mapred with multiple indexes, they are no longer specified in an array. Use an object with multiple keys instead.
+
 Installation
 ------------
 
@@ -116,18 +121,13 @@ riak.get({ index: { creator: 'me' } }, function (err, reply) {
 
 When fetching data by index, the reply data will always be an array. This usage is actually an interface to the MapReduce
 function (described later) that fetches the keys and uses the Riak.mapValuesJson map phase to return data. Note that you can
-specify multiple indexes, and a MapReduce job will verify the additional ones for you.
+specify multiple indexes.
 
 ```javascript
-riak.get({ index: [{ creator: 'me' }, { published: true }] }, function (err, reply) {
+riak.get({ index: { creator: 'me', published: true } }, function (err, reply) {
     console.log(reply.data);
 });
 ```
-
-When specifying more than one index, an array must be used. This allows you to optimize the query some, by reducing the overall
-data set as much as possible before MapReduce takes over. In the above example, only data with a creator index set to 'me' will
-reach the MapReduce filter. This is much more efficient than the reverse if there are, say 10,000 data items with a published
-index set to true, but only 10 of them are mine.
 
 Store data (Riak created key)
 -----------------------------

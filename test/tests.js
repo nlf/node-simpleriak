@@ -78,7 +78,7 @@ describe('get', function () {
     });
 
     it('can get an item by two indexes', function (done) {
-        riak.get({ index: [{ test: 'two_index' }, { test2: 'two_index' }] }, function (err, reply) {
+        riak.get({ index: { test: 'two_index', test2: 'two_index' } }, function (err, reply) {
             reply.statusCode.should.equal(200);
             reply.data.should.be.an.instanceOf(Array);
             reply.data.length.should.equal(1);
@@ -156,7 +156,7 @@ describe('getKeys', function () {
     });
 
     it('can list keys matching two indexes', function (done) {
-        riak.getKeys({ index: [{ test: 'two_index' }, { test2: 'two_index' }] }, function (err, reply) {
+        riak.getKeys({ index: { test: 'two_index', test2: 'two_index' } }, function (err, reply) {
             reply.statusCode.should.equal(200);
             reply.data.should.have.ownProperty('keys');
             reply.data.keys.should.be.an.instanceOf(Array);
@@ -279,7 +279,7 @@ describe('mapred', function () {
     });
 
     it('can mapreduce based on two indexes', function (done) {
-        riak.mapred({ index: [{ test: 'two_index' }, { test2: 'two_index' }] }, function (err, reply) {
+        riak.mapred({ index: { test: 'two_index', test2: 'two_index' } }, function (err, reply) {
             reply.statusCode.should.equal(200);
             reply.data.should.be.an.instanceOf(Array);
             reply.data.length.should.equal(1);
