@@ -140,7 +140,20 @@ SimpleRiak.prototype.search = function (options, callback) {
     if (options.rows) req += '&rows=' + options.rows;
     if (options.sort) req += '&sort=' + options.sort;
     if (options.filter) req += '&filter=' + options.filter;
-    request.get({ uri: encodeURI(req) }, respond(callback));
+
+    function filter(err, reply) {
+        if (err) return callback(err);
+        var response = { statusCode: reply.statusCode, headers: reply.headers, data: [] };
+        response.headers.numFound = reply.data.response.numFound;
+        response.headers.start = reply.data.response.start;
+        response.headers.params = reply.data.responseHeader.params;
+        response.data = reply.data.response.docs.map(function (doc) {
+            return { key: doc.id, data: JSON.stringify(doc.fields) };
+        });
+        callback(null, response);
+    }
+
+    request.get({ uri: encodeURI(req) }, respond(filter));
 };
 
 SimpleRiak.prototype.getBucket = function (options, callback) {

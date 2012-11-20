@@ -69,6 +69,22 @@ riak.getKeys({ index: { count: { start: 5, end: 10 } } }, function (err, reply) 
 When using an index, you may either specify a start and end to be used with riak's range finding, or
 a key which will search for an exact match.
 
+List keys (matching a search)
+-----------------------------
+
+```javascript
+riak.getKeys({ search: 'creator:me' }, function (err, reply) {
+    console.log(reply.data);
+});
+
+riak.getKeys({ search: { query: 'creator:me AND type:article', rows: 5, sort: 'timestamp' } }, function (err, reply) {
+    console.log(reply.data);
+});
+```
+
+Searching supports all query parameters supported by the Riak Solr interface.
+
+
 List indexes (matching a key)
 -----------------------------
 
@@ -128,6 +144,16 @@ riak.get({ index: { creator: 'me', published: true } }, function (err, reply) {
     console.log(reply.data);
 });
 ```
+
+Get data (by search)
+--------------------
+
+```javascript
+riak.get({ search: 'creator:me' }, function (err, reply) {
+    console.log(reply.data);
+});
+```
+
 
 Store data (Riak created key)
 -----------------------------
@@ -226,13 +252,29 @@ riak.mapred({ map: map }, callback);
 ```
 
 You may specify a bucket, a bucket and key, an array of keys, or a bucket and an index using an exact match or range.
+Indexes and search inputs are run through getKeys and the resulting array passed to mapreduce, so this input also
+supports matching on multiple indexes and full search query parameters.
 
 ```javascript
 riak.mapred({ bucket: 'test2', map: 'Riak.mapValuesJson' }, callback);
 riak.mapred({ key: 'test', map: 'Riak.mapValuesJson' }, callback); // default bucket is used
 riak.mapred({ key: ['test', 'test2'], map: 'Riak.mapValuesJson' }, callback);
 riak.mapred({ index: { creator: 'me' }, map: 'Riak.mapValuesJson' }, callback);
+riak.mapred({ search: 'creator:me' }, callback);
 ```
+
+Search
+------
+
+```javascript
+riak.search({ query: 'creator:me', rows: 10 }, function (err, reply) {
+    console.log(reply.data);
+});
+```
+
+All parameters allowed by the Solr interface are allowed here and are passed directly through. The response
+will come back in the same format as MapReduce. The numFound, start, and params data normally returned by Solr
+can be found in the headers property of the reply.
 
 Ping
 ----
