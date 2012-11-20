@@ -28,50 +28,6 @@ function toJSON(data) {
     }
 }
 
-function mapToMap(v, keyData, arg) {
-    var ret = [],
-        indexes = v.values[0].metadata.index,
-        match = true;
-
-    for (var i = 0; i < arg.length; i++) {
-        var ind = arg[i][0],
-            val = arg[i][1];
-        if (!indexes.hasOwnProperty(ind)) {
-            match = false;
-        } else {
-            if (typeof val === 'object') {
-                if (indexes[ind] < val.start || indexes[ind] > val.end) match = false;
-            } else {
-                if (indexes[ind] !== val) match = false;
-            }
-        }
-    }
-    if (match) ret.push([v.bucket, v.key]);
-    return ret;
-}
-
-function mapIndexes(v, keyData, arg) {
-    var ret = [],
-        indexes = v.values[0].metadata.index,
-        match = true;
-
-    for (var i = 0; i < arg.length; i++) {
-        var ind = arg[i][0],
-            val = arg[i][1];
-        if (!indexes.hasOwnProperty(ind)) {
-            match = false;
-        } else {
-            if (typeof val === 'object') {
-                if (indexes[ind] < val.start || indexes[ind] > val.end) match = false;
-            } else {
-                if (indexes[ind] !== val) match = false;
-            }
-        }
-    }
-    if (match) ret.push(v);
-    return ret;
-}
-
 SimpleRiak.prototype.buildIndexMap = function (bucket, index, match) {
     var req = { json: true },
         ind = buildIndex(index, match);
@@ -140,15 +96,6 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
         options = {};
     }
 
-    function map(v) {
-        if (v.values[0].metadata['X-Riak-Deleted']) return [];
-        return [v.key];
-    }
-
-    function reduce(v) {
-        return { keys: v };
-    }
-
     var bucket = options.bucket || this.bucket,
         req,
         keys,
@@ -168,9 +115,15 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
             callback(null, { data: { keys: keys }, statusCode: 200 });
         });
     } else if (options.search) {
-        req = { bucket: bucket, search: options.search, map: map, reduce: [ 'Riak.filterNotFound', reduce ] };
-        if (options.filter) req.filter = options.filter;
-        this.mapred(req, callback);
+        if (typeof options.search === 'string') {
+            req = { query: options.search };
+        } else if (typeof options.search === 'object') {
+            req = options.search;
+        }
+        this.search(req, function (err, reply) {
+            if (err) return callback(err);
+            callback(null, { keys: reply.data.response.docs.map(function (doc) { return doc.id; }), statusCode: 200 });
+        });
     } else {
         request.get({ uri: this.buildURL('buckets', bucket, 'keys'), qs: { keys: true } }, respond(callback));
     }
