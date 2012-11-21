@@ -340,7 +340,7 @@ SimpleRiak.prototype.mapred = function (options, callback) {
     req.uri = this.buildURL('mapred');
     req.json = { inputs: { bucket: bucket }, query: [] };
     if (options.index) {
-        this.getKeys({ index: options.index }, function (err, reply) {
+        this.getKeys({ bucket: bucket, index: options.index }, function (err, reply) {
             if (err) return callback(err);
             req.json.inputs = reply.data.keys.map(function (key) {
                 return [bucket, key];
