@@ -31,7 +31,7 @@ function toJSON(data) {
 SimpleRiak.prototype.buildIndexMap = function (bucket, index, match) {
     var req = { json: true },
         ind = buildIndex(index, match);
-    if (typeof val === 'object') {
+    if (typeof match === 'object') {
         req.uri = this.buildURL('buckets', bucket, 'index', ind, match.start, match.end);
     } else {
         req.uri = this.buildURL('buckets', bucket, 'index', ind, match);
@@ -177,6 +177,7 @@ SimpleRiak.prototype.setBucket = function (options, callback) {
 SimpleRiak.prototype.get = function (options, callback) {
     var bucket = options.bucket || this.bucket,
         self = this;
+    if (!options.bucket) options.bucket = bucket;
     if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     function map(v) {
         return [{key: v.key, data: v.values[0].data}];
@@ -191,6 +192,7 @@ SimpleRiak.prototype.get = function (options, callback) {
     if (options.index) {
         this.getKeys(options, function (err, reply) {
             if (!reply.data.keys.length) return callback(null, { data: {}, statusCode: 404 });
+            req.bucket = bucket;
             req.key = reply.data.keys;
             req.map = map;
             self.mapred(req, callback);
@@ -341,7 +343,7 @@ SimpleRiak.prototype.mapred = function (options, callback) {
     req.json = { inputs: { bucket: bucket }, query: [] };
     if (options.index) {
         this.getKeys({ bucket: bucket, index: options.index }, function (err, reply) {
-            if (err) return callback(err);
+            if (!reply.data.keys) reply.data.keys = [];
             req.json.inputs = reply.data.keys.map(function (key) {
                 return [bucket, key];
             });
