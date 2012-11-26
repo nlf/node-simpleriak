@@ -125,7 +125,32 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
             callback(null, { keys: reply.data.response.docs.map(function (doc) { return doc.id; }), statusCode: 200 });
         });
     } else {
-        request.get({ uri: this.buildURL('buckets', bucket, 'keys'), qs: { keys: true } }, respond(callback));
+        var response = {},
+            failed = false,
+            stream = request.get({ uri: this.buildURL('buckets', bucket, 'keys'), qs: { keys: 'stream' } });
+        stream.on('response', function (res) {
+            if (res.statusCode !== 200) failed = true;
+            response.headers = res.headers;
+            response.statusCode = res.statusCode;
+        });
+        stream.on('data', function (body) {
+            if (!failed) {
+                body = JSON.parse(body.toString());
+                if (!Array.isArray(keys)) {
+                    keys = body.keys;
+                } else {
+                    keys = keys.concat(body.keys);
+                }
+            }
+        });
+        stream.on('end', function () {
+            if (failed) {
+                callback(new Error(http.STATUS_CODES[response.statusCode]), response);
+            } else {
+                response.data = { keys: keys };
+                callback(null, response);
+            }
+        });
     }
 };
 
