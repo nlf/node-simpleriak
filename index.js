@@ -91,6 +91,7 @@ SimpleRiak.prototype.getBuckets = function (callback) {
 };
 
 SimpleRiak.prototype.getKeys = function (options, callback) {
+    var buffer = '';
     if (typeof callback === 'undefined') {
         callback = options;
         options = {};
@@ -100,8 +101,8 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
         try {
             data = JSON.parse(data.toString());
         } catch (e) {
-            buffers.push(data.toString());
-            data = parseData(buffers.join(''));
+            buffer += data.toString();
+            data = parseData(buffer);
         } finally {
             return data;
         }
@@ -138,8 +139,7 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
     } else {
         var response = {},
             failed = false,
-            stream = request.get({ uri: this.buildURL('buckets', bucket, 'keys'), qs: { keys: 'stream' } }),
-            buffers = [];
+            stream = request.get({ uri: this.buildURL('buckets', bucket, 'keys'), qs: { keys: 'stream' } });
         stream.on('response', function (res) {
             if (res.statusCode !== 200) failed = true;
             response.headers = res.headers;
