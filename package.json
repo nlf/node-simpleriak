@@ -4,7 +4,8 @@
   "description": "a very simple riak http client",
   "main": "index.js",
   "dependencies": {
-    "request": "~2.11.1"
+    "request": "~2.11.1",
+    "async": "~0.1.22"
   },
   "devDependencies": {
     "should": "~1.1.0",
