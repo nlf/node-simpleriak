@@ -1,6 +1,6 @@
 {
   "name": "simpleriak",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "a very simple riak http client",
   "main": "index.js",
   "dependencies": {
