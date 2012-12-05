@@ -114,15 +114,19 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
         self = this;
     if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     if (options.index) {
-        async.forEach(Object.getOwnPropertyNames(options.index), function (index, cb) {
-            request.get(self.buildIndexMap(bucket, index, options.index[index]), function (err, res, body) {
-                if (!Array.isArray(keys)) {
-                    keys = body.keys;
-                } else {
-                    keys = _intersection(keys, body.keys);
-                }
-                cb();
-            });
+        async.forEach(Object.getOwnPropertyNames(options.index), function (i, cb) {
+            var indices = options.index[i];
+            if (!Array.isArray(indices)) indices = [indices];
+            async.forEach(indices, function (index, icb) {
+                request.get(self.buildIndexMap(bucket, i, index), function (err, res, body) {
+                    if (!Array.isArray(keys)) {
+                        keys = body.keys;
+                    } else {
+                        keys = _intersection(keys, body.keys);
+                    }
+                    icb();
+                });
+            }, cb);
         }, function (err) {
             callback(null, { data: { keys: keys }, statusCode: 200 });
         });
