@@ -28,6 +28,13 @@ function toJSON(data) {
     }
 }
 
+/* Helper functions */
+SimpleRiak.prototype.SimpleRiak = {
+    reduceSortByAttribute: function (v, arg) {
+        return v.sort(function (a, b) { if (a[arg] > b[arg]) return -1; if (a[arg] < b[arg]) return 1; return 0; });
+    }
+};
+
 SimpleRiak.prototype.buildIndexMap = function (bucket, index, match) {
     var req = { json: true },
         ind = buildIndex(index, match);
@@ -378,6 +385,7 @@ SimpleRiak.prototype.del = function (options, callback) {
 
 SimpleRiak.prototype.mapred = function (options, callback) {
     var bucket = options.bucket || this.bucket;
+    var self = this;
     if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     var req = {};
     req.uri = this.buildURL('mapred');
@@ -424,17 +432,28 @@ SimpleRiak.prototype.mapred = function (options, callback) {
     function addPhase(type, phases) {
         var phaselist = [];
         if (!Array.isArray(phases)) phases = [phases];
-        phases.forEach(function (phase) { 
+        phases.forEach(function (phase) {
             var this_phase = {};
+            var fn;
             this_phase[type] = {};
             this_phase[type].language = phase.language || 'javascript';
             if (typeof phase === 'string') {
-                this_phase[type].name = phase;
+                if (phase.indexOf('SimpleRiak.') === 0) {
+                    fn = phase.split('.')[1];
+                    this_phase[type].source = self.SimpleRiak[fn].toString();
+                } else {
+                    this_phase[type].name = phase;
+                }
             } else if (typeof phase === 'function') {
                 this_phase[type].source = phase.toString();
             } else if (typeof phase === 'object') {
                 if (phase.name) {
-                    this_phase[type].name = phase.name;
+                    if (phase.name.indexOf('SimpleRiak.') === 0) {
+                        fn = phase.name.split('.')[1];
+                        this_phase[type].source = self.SimpleRiak[fn].toString();
+                    } else {
+                        this_phase[type].name = phase.name;
+                    }
                 } else if (phase.source) {
                     this_phase[type].source = phase.source.toString();
                 } else if (phase.bucket && phase.key) {
