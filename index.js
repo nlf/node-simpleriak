@@ -1,6 +1,7 @@
 var request = require('request'),
     querystring = require('querystring'),
     http = require('http'),
+    builtins = require('./lib/builtins'),
     async = require('async');
 
 function SimpleRiak(options) {
@@ -424,17 +425,28 @@ SimpleRiak.prototype.mapred = function (options, callback) {
     function addPhase(type, phases) {
         var phaselist = [];
         if (!Array.isArray(phases)) phases = [phases];
-        phases.forEach(function (phase) { 
+        phases.forEach(function (phase) {
             var this_phase = {};
+            var fn;
             this_phase[type] = {};
             this_phase[type].language = phase.language || 'javascript';
             if (typeof phase === 'string') {
-                this_phase[type].name = phase;
+                if (phase.indexOf('SimpleRiak.') === 0) {
+                    fn = phase.split('.')[1];
+                    this_phase[type].source = builtins[fn].toString();
+                } else {
+                    this_phase[type].name = phase;
+                }
             } else if (typeof phase === 'function') {
                 this_phase[type].source = phase.toString();
             } else if (typeof phase === 'object') {
                 if (phase.name) {
-                    this_phase[type].name = phase.name;
+                    if (phase.name.indexOf('SimpleRiak.') === 0) {
+                        fn = phase.name.split('.')[1];
+                        this_phase[type].source = builtins[fn].toString();
+                    } else {
+                        this_phase[type].name = phase.name;
+                    }
                 } else if (phase.source) {
                     this_phase[type].source = phase.source.toString();
                 } else if (phase.bucket && phase.key) {
