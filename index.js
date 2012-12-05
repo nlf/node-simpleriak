@@ -1,6 +1,7 @@
 var request = require('request'),
     querystring = require('querystring'),
     http = require('http'),
+    builtins = require('./lib/builtins'),
     async = require('async');
 
 function SimpleRiak(options) {
@@ -27,13 +28,6 @@ function toJSON(data) {
         return data;
     }
 }
-
-/* Helper functions */
-SimpleRiak.prototype.SimpleRiak = {
-    reduceSortByAttribute: function (v, arg) {
-        return v.sort(function (a, b) { if (a[arg] > b[arg]) return -1; if (a[arg] < b[arg]) return 1; return 0; });
-    }
-};
 
 SimpleRiak.prototype.buildIndexMap = function (bucket, index, match) {
     var req = { json: true },
@@ -385,7 +379,6 @@ SimpleRiak.prototype.del = function (options, callback) {
 
 SimpleRiak.prototype.mapred = function (options, callback) {
     var bucket = options.bucket || this.bucket;
-    var self = this;
     if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     var req = {};
     req.uri = this.buildURL('mapred');
@@ -440,7 +433,7 @@ SimpleRiak.prototype.mapred = function (options, callback) {
             if (typeof phase === 'string') {
                 if (phase.indexOf('SimpleRiak.') === 0) {
                     fn = phase.split('.')[1];
-                    this_phase[type].source = self.SimpleRiak[fn].toString();
+                    this_phase[type].source = builtins[fn].toString();
                 } else {
                     this_phase[type].name = phase;
                 }
@@ -450,7 +443,7 @@ SimpleRiak.prototype.mapred = function (options, callback) {
                 if (phase.name) {
                     if (phase.name.indexOf('SimpleRiak.') === 0) {
                         fn = phase.name.split('.')[1];
-                        this_phase[type].source = self.SimpleRiak[fn].toString();
+                        this_phase[type].source = builtins[fn].toString();
                     } else {
                         this_phase[type].name = phase.name;
                     }
