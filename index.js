@@ -465,7 +465,10 @@ SimpleRiak.prototype.mapred = function (options, callback) {
 
     function makeRequest(req) {
         if (options.map) req.json.query = req.json.query.concat(addPhase('map', options.map));
-        if (options.reduce) req.json.query = req.json.query.concat(addPhase('reduce', options.reduce));
+        if (options.reduce) {
+            if (!options.map) addPhase('map', builtins.mapNoop);
+            req.json.query = req.json.query.concat(addPhase('reduce', options.reduce));
+        }
         //console.log(require('util').inspect(req, false, null, true));
         request.post(req, respond(callback));
     }
