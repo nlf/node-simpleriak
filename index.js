@@ -1,6 +1,7 @@
 var request = require('request'),
     querystring = require('querystring'),
     http = require('http'),
+    builtins = require('./lib/builtins'),
     async = require('async');
 
 function SimpleRiak(options) {
