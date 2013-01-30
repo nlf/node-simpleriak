@@ -10,7 +10,7 @@ function SimpleRiak(options) {
 }
 
 function isJSON(data) {
-    return false;
+    if (Buffer.isBuffer(data)) return false;
     if (typeof data === 'object') return true;
     try {
         data = JSON.parse(data);
@@ -141,6 +141,7 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
     } else {
         var response = {},
             failed = false,
+            tries = 0,
             stream = request.get({ uri: this.buildURL('buckets', bucket, 'keys'), qs: { keys: 'stream' } });
         stream.on('response', function (res) {
             if (res.statusCode !== 200) failed = true;
@@ -289,7 +290,7 @@ SimpleRiak.prototype.put = function (options, callback) {
         for (var lidx in options.link) {
             link = options.link[lidx];
             tags.push('</buckets/' + bucket + '/keys/' + link.key + '>; riaktag="' + link.tag + '"');
-        };
+        }
         req.headers.link = tags.join(', ');
     }
     if (options.key) {
@@ -326,7 +327,7 @@ SimpleRiak.prototype.put = function (options, callback) {
 };
 
 function parseLink(link) {
-    if(!link) {
+    if (!link) {
         return {};
     }
     var links = [];
@@ -344,7 +345,7 @@ function parseLink(link) {
             key = key.substring(0, key.length - 1);
             key = decodeURIComponent(key);
             tag = tagp[1].substring(1, tagp[1].length - 1);
-            links.push({key:key,tag:tag});
+            links.push({ key: key, tag: tag });
         }
     }
     return links;
@@ -402,10 +403,10 @@ SimpleRiak.prototype.modify = function (options, callback) {
         var transform = { bucket: bucket, key: options.key, vclock: reply.headers['x-riak-vclock'], returnbody: true };
         if (options.link) {
             var oldlinks = reply.headers.link || '';
-            var oldlinks = parseLink(oldlinks);
+            oldlinks = parseLink(oldlinks);
             for (var lidx in options.link) {
                 var l = options.link[lidx];
-                if(l.remove) {
+                if (l.remove) {
                     for (var olidx in oldlinks) {
                         var ol = oldlinks[olidx];
                         if (ol.key == l.key && ol.tag == l.tag) {
@@ -415,14 +416,14 @@ SimpleRiak.prototype.modify = function (options, callback) {
                     options.link.splice(lidx, 1);
                 }
             }
-            var newlinks = oldlinks.concat(options.link)
+            var newlinks = oldlinks.concat(options.link);
             transform.link = newlinks;
         } else {
-            transform.link = parseLink(reply.headers.link || '')
+            transform.link = parseLink(reply.headers.link || '');
         }
         transform.meta = {};
         for (var hidx in reply.headers) {
-            if(hidx.substring(0, 12) == 'x-riak-meta-') {
+            if (hidx.substring(0, 12) == 'x-riak-meta-') {
                 transform.meta[hidx.substring(12, hidx.length)] = reply.headers[hidx];
             }
         }
