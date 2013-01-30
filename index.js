@@ -10,6 +10,7 @@ function SimpleRiak(options) {
 }
 
 function isJSON(data) {
+    return false;
     if (typeof data === 'object') return true;
     try {
         data = JSON.parse(data);
@@ -115,19 +116,15 @@ SimpleRiak.prototype.getKeys = function (options, callback) {
         self = this;
     if (!bucket) return callback(new Error('No bucket specified'), { statusCode: 400 });
     if (options.index) {
-        async.forEach(Object.getOwnPropertyNames(options.index), function (i, cb) {
-            var indices = options.index[i];
-            if (!Array.isArray(indices)) indices = [indices];
-            async.forEach(indices, function (index, icb) {
-                request.get(self.buildIndexMap(bucket, i, index), function (err, res, body) {
-                    if (!Array.isArray(keys)) {
-                        keys = body.keys;
-                    } else {
-                        keys = _intersection(keys, body.keys);
-                    }
-                    icb();
-                });
-            }, cb);
+        async.forEach(Object.getOwnPropertyNames(options.index), function (index, cb) {
+            request.get(self.buildIndexMap(bucket, index, options.index[index]), function (err, res, body) {
+                if (!Array.isArray(keys)) {
+                    keys = body.keys;
+                } else {
+                    keys = _intersection(keys, body.keys);
+                }
+                cb();
+            });
         }, function (err) {
             callback(null, { data: { keys: keys }, statusCode: 200 });
         });
@@ -281,34 +278,78 @@ SimpleRiak.prototype.put = function (options, callback) {
             req.headers['x-riak-index-' + index] = options.index[ind];
         });
     }
+    if (options.meta) {
+        for (var midx in options.meta) {
+            req.headers['x-riak-meta-' + midx] = options.meta[midx];
+        }
+    }
     if (options.link) {
-        var tag = '';
-        Object.keys(options.link).forEach(function (link) {
-            if (tag) tag += ', ';
-            tag += '<' + options.link[link] + '>; riaktag="' + link + '"';
-        });
-        req.headers.link = tag;
+        var tags = [];
+        var link;
+        for (var lidx in options.link) {
+            link = options.link[lidx];
+            tags.push('</buckets/' + bucket + '/keys/' + link.key + '>; riaktag="' + link.tag + '"');
+        };
+        req.headers.link = tags.join(', ');
     }
     if (options.key) {
         req.method = 'put';
         req.uri = this.buildURL('buckets', bucket, 'keys', options.key);
         if (options.vclock) {
             req.headers['x-riak-vclock'] = options.vclock;
-            request(req, respond(callback));
+            if (callback) {
+                return request(req, respond(callback));
+            } else {
+                return request(req);
+            }
         } else {
             request.head({ uri: req.uri }, function (err, res, body) {
                 if (res.headers['x-riak-vclock']) {
                     req.headers['x-riak-vclock'] = res.headers['x-riak-vclock'];
                 }
-                request(req, respond(callback));
             });
+            if (callback) {
+                return request(req, respond(callback));
+            } else {
+                return request(req);
+            }
         }
     } else {
         req.method = 'post';
         req.uri = this.buildURL('buckets', bucket, 'keys');
-        request(req, respond(callback));
+        if (callback) {
+            return request(req, respond(callback));
+        } else {
+            return request(req);
+        }
     }
 };
+
+function parseLink(link) {
+    if(!link) {
+        return {};
+    }
+    var links = [];
+    var link_strings = link.split(',');
+    var link_parts;
+    var key, tag;
+    for (var lsidx in link_strings) {
+        link_parts = link_strings[lsidx].split(';');
+        key = link_parts[0].trim();
+        tag = link_parts[1].trim();
+        var tagp = tag.split('=');
+        if (tagp[0].trim() == 'riaktag') {
+            key = key.split('/');
+            key = key[key.length - 1];
+            key = key.substring(0, key.length - 1);
+            key = decodeURIComponent(key);
+            tag = tagp[1].substring(1, tagp[1].length - 1);
+            links.push({key:key,tag:tag});
+        }
+    }
+    return links;
+}
+
 
 function parseIndex(headers) {
     var indexes = {};
@@ -345,13 +386,13 @@ SimpleRiak.prototype.modify = function (options, callback) {
 
     function mergeIndexes(oldIndex, newIndex) {
         var ret = oldIndex;
-        Object.keys(newIndex).forEach(function (key) {
+        for (var key in newIndex) {
             if (newIndex[key] === undefined) {
                 delete ret[key];
             } else {
                 ret[key] = newIndex[key];
             }
-        });
+        }
         return ret;
     }
 
@@ -359,6 +400,38 @@ SimpleRiak.prototype.modify = function (options, callback) {
     self.get({ bucket: bucket, key: options.key }, function (err, reply) {
         if (err) return callback(err, reply);
         var transform = { bucket: bucket, key: options.key, vclock: reply.headers['x-riak-vclock'], returnbody: true };
+        if (options.link) {
+            var oldlinks = reply.headers.link || '';
+            var oldlinks = parseLink(oldlinks);
+            for (var lidx in options.link) {
+                var l = options.link[lidx];
+                if(l.remove) {
+                    for (var olidx in oldlinks) {
+                        var ol = oldlinks[olidx];
+                        if (ol.key == l.key && ol.tag == l.tag) {
+                            oldlinks.splice(olidx, 1);
+                        }
+                    }
+                    options.link.splice(lidx, 1);
+                }
+            }
+            var newlinks = oldlinks.concat(options.link)
+            transform.link = newlinks;
+        } else {
+            transform.link = parseLink(reply.headers.link || '')
+        }
+        transform.meta = {};
+        for (var hidx in reply.headers) {
+            if(hidx.substring(0, 12) == 'x-riak-meta-') {
+                transform.meta[hidx.substring(12, hidx.length)] = reply.headers[hidx];
+            }
+        }
+        if (options.meta) {
+            for (var midx in options.meta) {
+                transform.meta[midx] = options.meta[midx];
+            }
+        }
+
         transform.index = parseIndex(reply.headers);
         if (options.index) transform.index = mergeIndexes(transform.index, options.index);
         if (isJSON(reply.data)) reply.data = toJSON(reply.data);
@@ -425,28 +498,17 @@ SimpleRiak.prototype.mapred = function (options, callback) {
     function addPhase(type, phases) {
         var phaselist = [];
         if (!Array.isArray(phases)) phases = [phases];
-        phases.forEach(function (phase) {
+        phases.forEach(function (phase) { 
             var this_phase = {};
-            var fn;
             this_phase[type] = {};
             this_phase[type].language = phase.language || 'javascript';
             if (typeof phase === 'string') {
-                if (phase.indexOf('SimpleRiak.') === 0) {
-                    fn = phase.split('.')[1];
-                    this_phase[type].source = builtins[fn].toString();
-                } else {
-                    this_phase[type].name = phase;
-                }
+                this_phase[type].name = phase;
             } else if (typeof phase === 'function') {
                 this_phase[type].source = phase.toString();
             } else if (typeof phase === 'object') {
                 if (phase.name) {
-                    if (phase.name.indexOf('SimpleRiak.') === 0) {
-                        fn = phase.name.split('.')[1];
-                        this_phase[type].source = builtins[fn].toString();
-                    } else {
-                        this_phase[type].name = phase.name;
-                    }
+                    this_phase[type].name = phase.name;
                 } else if (phase.source) {
                     this_phase[type].source = phase.source.toString();
                 } else if (phase.bucket && phase.key) {
@@ -465,11 +527,7 @@ SimpleRiak.prototype.mapred = function (options, callback) {
 
     function makeRequest(req) {
         if (options.map) req.json.query = req.json.query.concat(addPhase('map', options.map));
-        if (options.reduce) {
-            if (!options.map) addPhase('map', builtins.mapNoop);
-            req.json.query = req.json.query.concat(addPhase('reduce', options.reduce));
-        }
-        //console.log(require('util').inspect(req, false, null, true));
+        if (options.reduce) req.json.query = req.json.query.concat(addPhase('reduce', options.reduce));
         request.post(req, respond(callback));
     }
 };
