@@ -1,6 +1,6 @@
 {
   "name": "simpleriak",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "a very simple riak http client",
   "main": "index.js",
   "dependencies": {
@@ -17,11 +17,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/nathan-lafreniere/node-simpleriak.git"
+    "url": "git://github.com/nlf/node-simpleriak.git"
   },
-  "homepage": "https://github.com/nathan-lafreniere/node-simpleriak",
+  "homepage": "https://github.com/nlf/node-simpleriak",
   "bugs": {
-    "url": "https://github.com/nathan-lafreniere/node-simpleriak/issues",
+    "url": "https://github.com/nlf/node-simpleriak/issues",
     "email": "quitlahok@gmail.com"
   },
   "keywords": [
