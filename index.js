@@ -34,9 +34,9 @@ SimpleRiak.prototype.buildIndexMap = function (bucket, index, match) {
     var req = { json: true },
         ind = buildIndex(index, match);
     if (typeof match === 'object') {
-        req.uri = this.buildURL('buckets', bucket, 'index', ind, match.start, match.end);
+        req.uri = this.buildURL('buckets', bucket, 'index', ind, encodeURIComponent(match.start), encodeURIComponent(match.end));
     } else {
-        req.uri = this.buildURL('buckets', bucket, 'index', ind, match);
+        req.uri = this.buildURL('buckets', bucket, 'index', ind, encodeURIComponent(match));
     }
     return req;
 };
