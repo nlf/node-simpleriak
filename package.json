@@ -1,16 +1,15 @@
 {
   "name": "simpleriak",
-  "version": "0.1.10",
-  "description": "a very simple riak http client",
+  "version": "2.0.0",
+  "description": "a simple to use multi-protocol riak client",
   "main": "index.js",
   "dependencies": {
-    "request": "~2.11.1",
-    "async": "~0.1.22"
+    "riakpbc": "~1.0.10",
+    "hyperquest": "~0.2.0"
   },
   "devDependencies": {
-    "should": "~1.1.0",
-    "mocha": "~1.4.2",
-    "precommit-hook": "~0.1.0"
+    "nodeunit": "",
+    "precommit-hook": ""
   },
   "scripts": {
     "test": "node test"
