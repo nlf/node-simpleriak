@@ -11,7 +11,6 @@ function SimpleRiak(options) {
 
     this.server.host = options.host || '127.0.0.1';
     this.server.port = options.port; // we let this fall through undefined so the backend can determine its own default
-    this.bucket = options.bucket;
 
     this.backend = new backends[options.backend || 'http'](this.server);
 }
@@ -21,7 +20,12 @@ SimpleRiak.prototype.getBuckets = function (callback) {
 };
 
 SimpleRiak.prototype.getBucket = function (params, callback) {
-    var bucket = params.bucket || this.bucket;
+    if (typeof params === 'function') {
+        callback = params;
+        params = {};
+    }
+
+    var bucket = params.bucket || this.defaults.bucket;
     
     if (!bucket) {
         return callback(new Error('No bucket specified'));
@@ -31,7 +35,7 @@ SimpleRiak.prototype.getBucket = function (params, callback) {
 };
 
 SimpleRiak.prototype.setBucket = function (params, callback) {
-    var bucket = params.bucket || this.bucket;
+    var bucket = params.bucket || this.defaults.bucket;
     delete params.bucket;
     
     if (!bucket) {
@@ -42,7 +46,13 @@ SimpleRiak.prototype.setBucket = function (params, callback) {
 };
 
 SimpleRiak.prototype.getKeys = function (params, callback) {
-    var bucket = params.bucket || this.bucket;
+    if (typeof params === 'function') {
+        callback = params;
+        params = {};
+    }
+
+    var bucket = params.bucket || this.defaults.bucket;
+    delete params.bucket;
     
     if (!bucket) {
         return callback(new Error('No bucket specified'));
