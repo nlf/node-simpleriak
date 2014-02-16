@@ -61,6 +61,32 @@ SimpleRiak.prototype.getKeys = function (params, callback) {
     this.backend.getKeys(bucket, callback);
 };
 
+SimpleRiak.prototype.get = function (params, callback) {
+    var bucket = params.bucket || this.defaults.bucket;
+    var key = params.key;
+    delete params.bucket;
+    delete params.key;
+
+    if (!bucket) {
+        return callback(new Error('No bucket specified'));
+    }
+
+    this.backend.get(bucket, key, params, callback);
+};
+
+SimpleRiak.prototype.delete = function (params, callback) {
+    var bucket = params.bucket || this.defaults.bucket;
+    var key = params.key;
+    delete params.bucket;
+    delete params.key;
+
+    if (!bucket) {
+        return callback(new Error('No bucket specified'));
+    }
+
+    this.backend.delete(bucket, key, params, callback);
+};
+
 SimpleRiak.prototype.ping = function (callback) {
     this.backend.ping(callback);
 };
